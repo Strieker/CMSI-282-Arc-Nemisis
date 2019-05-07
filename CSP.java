@@ -48,6 +48,14 @@ public class CSP {
 		return domainsInRange; 
 	}
 	
+	public static List<LocalDate> makeDateVars(int nMeetings){
+		List<LocalDate> dateVariables = new ArrayList<>();
+		for(int i = 0; i < nMeetings; i++) {
+			dateVariables.add(null);
+		}
+		return dateVariables;
+	}
+	
 
 //	A UnaryDateConstraint is parameterized 
 //	by an int L_VAL for the variable being
@@ -66,73 +74,91 @@ public class CSP {
 	// IS THIS PREPROCESSING TAYLORING DOWN DOMAIN POSSIBILITIES THAT WILL NEVER BE LOOKED AT 
 	// IS THIS ACTUALLY MODIFYING THE ORIGINAL LIST 
 	private static List<LocalDate> preprocess(List<LocalDate> states, Set<DateConstraint> constraints){
-		 for (DateConstraint d : constraints) {
-	            LocalDate leftDate = states.get(d.L_VAL);
-	            LocalDate rightDate = (d.arity() == 1) ? ((UnaryDateConstraint) d).R_VAL :
-	            states.get(((BinaryDateConstraint) d).R_VAL);	           
-	            if (!singleStateIsConstraintConsistent(leftDate, rightDate, constraints)) {
-	            	// okay to remove just the lval or need to also remove the right 
-	                states.remove(d.L_VAL);
-	            }
-	        }
+		boolean sat = false; 
+		for (DateConstraint d : constraints) {
+            LocalDate leftDate = states.get(d.L_VAL),
+                      rightDate = (d.arity() == 1) 
+                          ? ((UnaryDateConstraint) d).R_VAL 
+                          : states.get(((BinaryDateConstraint) d).R_VAL);
+            switch (d.OP) {
+            case "==": if (leftDate.isEqual(rightDate))  sat = true; break;
+            case "!=": if (!leftDate.isEqual(rightDate)) sat = true; break;
+            case ">":  if (leftDate.isAfter(rightDate))  sat = true; break;
+            case "<":  if (leftDate.isBefore(rightDate)) sat = true; break;
+            case ">=": if (leftDate.isAfter(rightDate) || leftDate.isEqual(rightDate))  sat = true; break;
+            case "<=": if (leftDate.isBefore(rightDate) || leftDate.isEqual(rightDate)) sat = true; break;
+            }
+            if(!sat) {
+                states.remove(d.L_VAL);
+
+            }
+		}
 		 return states; 
 	}
 	
 	
-	private static boolean singleStateIsConstraintConsistent(LocalDate L_VAL, LocalDate R_VAL, Set<DateConstraint> constraints){
-		
-		boolean sat = false; 
+//	private static boolean singleStateIsConstraintConsistent(LocalDate L_VAL, LocalDate R_VAL, Set<DateConstraint> constraints){
+//		
+//		boolean sat = false; 
+//		for (DateConstraint d : constraints) {
+//	            switch (d.OP) {
+//	            case "==": if (L_VAL.isEqual(R_VAL))  sat = true; break;
+//	            case "!=": if (!L_VAL.isEqual(R_VAL)) sat = true; break;
+//	            case ">":  if (L_VAL.isAfter(R_VAL))  sat = true; break;
+//	            case "<":  if (L_VAL.isBefore(R_VAL)) sat = true; break;
+//	            case ">=": if (L_VAL.isAfter(R_VAL) || L_VAL.isEqual(R_VAL))  sat = true; break;
+//	            case "<=": if (L_VAL.isBefore(R_VAL) || L_VAL.isEqual(R_VAL)) sat = true; break;
+//	            }
+//	            
+//	        }
+//		 return sat; 
+//	}
+	
+	private static boolean allStatesAreConsistent(List<LocalDate> states, Set<DateConstraint> constraints){ 
+        boolean sat = false;
+
 		for (DateConstraint d : constraints) {
-	            switch (d.OP) {
-	            case "==": if (L_VAL.isEqual(R_VAL))  sat = true; break;
-	            case "!=": if (!L_VAL.isEqual(R_VAL)) sat = true; break;
-	            case ">":  if (L_VAL.isAfter(R_VAL))  sat = true; break;
-	            case "<":  if (L_VAL.isBefore(R_VAL)) sat = true; break;
-	            case ">=": if (L_VAL.isAfter(R_VAL) || L_VAL.isEqual(R_VAL))  sat = true; break;
-	            case "<=": if (L_VAL.isBefore(R_VAL) || L_VAL.isEqual(R_VAL)) sat = true; break;
-	            }
-	            
-	        }
-		 return sat; 
-	}
-	
-	private static boolean allStatesAreConsistent(LocalDate L_VAL, List<LocalDate> states, Set<DateConstraint> constraints){
-		 for (DateConstraint d : constraints) {
-			 	LocalDate leftDate = (L_VAL == null) ? states.get(d.L_VAL) : L_VAL;
-	            LocalDate rightDate = (d.arity() == 1) ? ((UnaryDateConstraint) d).R_VAL :
-	            	states.get(((BinaryDateConstraint) d).R_VAL);	           
-	            if (!singleStateIsConstraintConsistent(leftDate, rightDate, constraints)) {
-	            	// okay to remove just the lval or need to also remove the right 
-	                return false;
-	            }
-	        }
-		 return true; 
+            LocalDate leftDate = states.get(d.L_VAL),
+                      rightDate = (d.arity() == 1) 
+                          ? ((UnaryDateConstraint) d).R_VAL 
+                          : states.get(((BinaryDateConstraint) d).R_VAL);
+            if(leftDate == null || rightDate == null) {return true;}
+            switch (d.OP) {
+            case "==": if (leftDate.isEqual(rightDate))  sat = true; break;
+            case "!=": if (!leftDate.isEqual(rightDate)) sat = true; break;
+            case ">":  if (leftDate.isAfter(rightDate))  sat = true; break;
+            case "<":  if (leftDate.isBefore(rightDate)) sat = true; break;
+            case ">=": if (leftDate.isAfter(rightDate) || leftDate.isEqual(rightDate))  sat = true; break;
+            case "<=": if (leftDate.isBefore(rightDate) || leftDate.isEqual(rightDate)) sat = true; break;
+            }
+        }
+        return sat;
 	}
 	
 	
 	
-	public static List<LocalDate> recursiveBackTracking (List<LocalDate> csp, List<LocalDate> variables, List<LocalDate> domains, Set<DateConstraint> constraints, int indexOfUnassignedVariable) {
+	public static List<LocalDate> recursiveBackTracking (List<LocalDate> csp, List<LocalDate> variables, List<LocalDate> domains, Set<DateConstraint> constraints, int indexOfUnassignedVariable, int stopSize) {
         // WHY ONLY 0? 
         System.out.println(indexOfUnassignedVariable);
-        // when replace indexOfUnassignedVariable == variables.size()
-		if((!variables.isEmpty() && allStatesAreConsistent(null, variables, constraints)) || domains.size() == 0) {
+		if(indexOfUnassignedVariable == stopSize && allStatesAreConsistent(variables, constraints) || domains.size() == 0) {
+    		System.out.println("I GOT HERE 1");
         	return variables;
         }
-        // THIS IS THE ISSUE AREA 
         for(LocalDate domain : domains) {
-//        	IS THAT WHAT YOU MEANT 
-        	if(allStatesAreConsistent(domain, variables, constraints)) {
-        		variables.add(indexOfUnassignedVariable, domain);
-            	csp = recursiveBackTracking(csp, variables, domains, constraints, indexOfUnassignedVariable++);
-            	// AM I DOING THIS PART RIGHT? 
-            	 if(!csp.isEmpty() && !allStatesAreConsistent(null, csp, constraints)) {
-                 	variables.remove(domain);
+        	if(allStatesAreConsistent(variables, constraints)) {
+        		variables.set(indexOfUnassignedVariable, domain);
+        		System.out.println("I GOT HERE 2");
+        		System.out.println(variables.toString());
+            	csp = recursiveBackTracking(csp, variables, domains, constraints, indexOfUnassignedVariable + 1, stopSize);
+            	 if(!csp.isEmpty() && !allStatesAreConsistent(csp, constraints)) {
+                 	variables.set(indexOfUnassignedVariable, null);
+                 	System.out.println("I GOT HERE 3");
+            		System.out.println(variables.toString());
                  } else {
                 	 return csp; 
                  }
         	}
         }
-        // IS THAT GOOD ENOUGH AS RETURN FAILURE 
         return csp; 
     }
 	
@@ -152,19 +178,21 @@ public class CSP {
      */
 	
     public static List<LocalDate> solve (int nMeetings, LocalDate rangeStart, LocalDate rangeEnd, Set<DateConstraint> constraints) {
+//    	List<LocalDate> domains = makeDomains(nMeetings, rangeStart, rangeEnd);
+
     	List<LocalDate> domains = preprocess(makeDomains(nMeetings, rangeStart, rangeEnd), constraints);
-    	for(LocalDate date : domains) {
-    		System.out.println(date);
-    	}
-    	List<LocalDate> variables = new ArrayList<>(nMeetings);
+//    	for(LocalDate date : domains) {
+//    		System.out.println(date);
+//    	}
+    	List<LocalDate> variables = makeDateVars(nMeetings);
     	List<LocalDate> csp = variables;
-    	List<LocalDate> solution = recursiveBackTracking(csp, variables, domains,constraints, 0);
+    	List<LocalDate> solution = recursiveBackTracking(csp, variables, domains,constraints, 0, nMeetings);
     	for(LocalDate date : solution) {
     		System.out.println(date);
     	}
-    	if(solution.isEmpty()) {
+    	if(solution.contains(null)) {
     		return null;
-    	}
+    	} 
     	return solution;
     }
     
