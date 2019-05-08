@@ -7,22 +7,6 @@ import java.util.Set;
 import java.util.List;
 import java.util.*;
 
-//X = {0, 1, 2}
-//D_i = {2019-1-1, 2019-1-2, 2019-1-3}
-//C = {
-//    // Unary Constraints:
-//    0 != 2019-1-2    // "Meeting 0 cannot occur on Jan. 2nd"
-//    2 < 2019-1-3     // "Meeting 2 must occur before Jan. 3rd"
-//    
-//    // Binary Constraints:
-//    0 != 1           // "Meetings 0 and 1 must be on separate days"
-//    1 == 2           // "Meetings 1 and 2 must be on the same day"
-//}
-//
-//Possible Solution:
-//[2019-1-1, 2019-1-2, 2019-1-2]
-//
-
 /**
  * CSP: Calendar Satisfaction Problem Solver
  * Provides a solution for scheduling some n meetings in a given
@@ -37,64 +21,113 @@ import java.util.*;
 
 public class CSP {
 
-	private static List<LocalDate> makeDomains(int nMeetings, LocalDate rangeStart, LocalDate rangeEnd){
-		List<LocalDate> domainsInRange = new ArrayList<>();
-		LocalDate currentState = rangeStart;
-		while(!currentState.equals(rangeEnd)){
-			domainsInRange.add(currentState);
-			currentState = currentState.plusDays(1);
+	private static List<List<LocalDate>> makeDomains(int nMeetings, LocalDate rangeStart, LocalDate rangeEnd){
+		List<List<LocalDate>> domains = new ArrayList<>();
+		for(int i = 0; i < domains.size(); i++) {
+			List<LocalDate> currentDomainSet = new ArrayList<>();
+			LocalDate currentState = rangeStart;
+			while(!currentState.equals(rangeEnd)){
+				currentDomainSet.add(currentState);
+				currentState = currentState.plusDays(1);
+			}
+			currentDomainSet.add(rangeEnd);
+			domains.add(currentDomainSet);
 		}
-		domainsInRange.add(rangeEnd);
-		return domainsInRange; 
+		return domains; 
+		
 	}
 	
-	public static List<LocalDate> makeDateVars(int nMeetings){
-		List<LocalDate> dateVariables = new ArrayList<>();
-		for(int i = 0; i < nMeetings; i++) {
-			dateVariables.add(null);
-		}
-		return dateVariables;
+	// 2 DATES AND AN OPERATOR PASS : INDIVIDUAL CONSTRAINT CHECK
+	
+	private static boolean constraintCheckSwitch(DateConstraint d, LocalDate leftDate, LocalDate rightDate, boolean sat) {
+		switch (d.OP) {
+        case "==": if (leftDate.isEqual(rightDate))  sat = true; break;
+        case "!=": if (!leftDate.isEqual(rightDate)) sat = true; break;
+        case ">":  if (leftDate.isAfter(rightDate))  sat = true; break;
+        case "<":  if (leftDate.isBefore(rightDate)) sat = true; break;
+        case ">=": if (leftDate.isAfter(rightDate) || leftDate.isEqual(rightDate))  sat = true; break;
+        case "<=": if (leftDate.isBefore(rightDate) || leftDate.isEqual(rightDate)) sat = true; break;
+        }
+        return sat;
 	}
 	
-
-//	A UnaryDateConstraint is parameterized 
-//	by an int L_VAL for the variable being
-//	constrained, a String OP denoting the 
-//	comparative operator, and LocalDate R_VAL 
-//	denoting the date to constrain the L_VAL to.
+	// FOR ANY ONE CONSTRAINT LOOK AT THE DOMAINS IT MENTIONS, LOOK AT ONE OF THE ARCS, AND EACH VALUE IN THE TAIL, SEE IF A VALUE IN THE HEAD SATISFIES THAT CONSTRAINT 
+		// IF NO VALUES IN THE HEAD SATISFY THE CONSTRAINT FOR THAT TAIL VALUE, THEN PRUNE IT FROM THE TAIL DOMAIN 
 	
-	
-//	Similarly, a BinaryDateConstraint 
-//	is parameterized by an int L_VAL 
-//	for the variable being constrained, 
-//	a String OP denoting the comparative operator, 
-//	and int R_VAL denoting the second variable.
-
-	
-	// IS THIS PREPROCESSING TAYLORING DOWN DOMAIN POSSIBILITIES THAT WILL NEVER BE LOOKED AT 
-	// IS THIS ACTUALLY MODIFYING THE ORIGINAL LIST 
-	private static List<LocalDate> preprocess(List<LocalDate> domains, Set<DateConstraint> constraints){
+	private static boolean constraintCheck(List<LocalDate> domain, Set<DateConstraint> constraints, boolean isUnary, LocalDate toRemove, LocalDate LVal, LocalDate RVal) {
 		for (DateConstraint d : constraints) {
-			if(d.arity() == 1) {
-				boolean sat = false; 
-	            LocalDate leftDate = domains.get(d.L_VAL),
-	                      rightDate = ((UnaryDateConstraint) d).R_VAL;
-	            switch (d.OP) {
-	            case "==": if (leftDate.isEqual(rightDate))  sat = true; break;
-	            case "!=": if (!leftDate.isEqual(rightDate)) sat = true; break;
-	            case ">":  if (leftDate.isAfter(rightDate))  sat = true; break;
-	            case "<":  if (leftDate.isBefore(rightDate)) sat = true; break;
-	            case ">=": if (leftDate.isAfter(rightDate) || leftDate.isEqual(rightDate))  sat = true; break;
-	            case "<=": if (leftDate.isBefore(rightDate) || leftDate.isEqual(rightDate)) sat = true; break;
+			boolean sat = false;
+            LocalDate leftDate = null,
+                      rightDate = null;
+            if(LVal == null) {
+            	leftDate = domain.get(d.L_VAL);
+            } else {
+            	leftDate = LVal;
+            }
+            toRemove = leftDate;
+			if(isUnary) {
+				if(d.arity() == 2) {
+					continue;
+				}
+				if(RVal == null) {
+	                rightDate = ((UnaryDateConstraint) d).R_VAL;
+	            }  else {
+	            	rightDate = RVal;
 	            }
-	            if(!sat) {
-	            	domains.remove(d.L_VAL);
+			} else {
+				if(d.arity() == 1) {
+					continue;
+				}
+				if(RVal == null) {
+	            	rightDate = domain.get(((BinaryDateConstraint) d).R_VAL);
+	            }  else {
+	            	rightDate = RVal;
 	            }
 			}
-			
+			if(!constraintCheckSwitch(d, leftDate, rightDate, sat)) {
+				return false; 
+			}
 		}
-		 return domains; 
+		return true; 
 	}
+	
+	private static List<List<LocalDate>> nodeConsistency(List<List<LocalDate>> domains, Set<DateConstraint> constraints){
+		LocalDate toRemove = null;
+		for(List<LocalDate> domain : domains) {
+			if(!constraintCheck(domain, constraints, true, toRemove, null, null)) {
+	           	domain.remove(toRemove);
+			}
+		}
+		
+		return domains; 
+	}
+	
+	private static List<List<LocalDate>> arcConstraint(List<List<LocalDate>> domains, Set<DateConstraint> constraints){ 
+
+		for (DateConstraint d : constraints) {
+	        
+        	if(d.arity() == 1) {
+        		continue;
+        	}
+	        LocalDate leftDate = null;
+	        LocalDate rightDate = null;
+			LocalDate toRemove = null;
+			
+				for(int i = 0; i < domains.size(); i++) {
+		            leftDate = domains.get(i).get(d.L_VAL);
+		            for(int j = 0; j < domains.size(); j++) {
+		            	rightDate = domains.get(j).get(((BinaryDateConstraint) d).R_VAL);
+		            	if(!constraintCheck(domains.get(i), constraints, true, toRemove, leftDate, rightDate)) {
+		            		domains.get(i).remove(leftDate);
+		    			} 	                    
+		            }
+		        }
+			
+	        
+		}
+        return domains;
+	}
+	
 	
 	private static boolean allStatesAreConsistent(List<LocalDate> assignments, Set<DateConstraint> constraints){ 
 
@@ -121,52 +154,30 @@ public class CSP {
 	}
 	
 	
-	private static PriorityQueue<LocalDate[]>  arcConsistent(List<LocalDate> domains, Set<DateConstraint> constraints){ 
-		
-		PriorityQueue<LocalDate[]> arcs = new PriorityQueue<>();
-		
-		for (DateConstraint d : constraints) {
-	        boolean sat = false;
-            LocalDate leftDate = domains.get(d.L_VAL),
-                      rightDate = domains.get(((BinaryDateConstraint) d).R_VAL);
-	        LocalDate[] currentArc = {rightDate, leftDate};
-                      
-            switch (d.OP) {
-            case "==": if (currentArc[0].isEqual(currentArc[1]))  sat = true; break;
-            case "!=": if (!currentArc[0].isEqual(currentArc[1])) sat = true; break;
-            case ">":  if (currentArc[0].isAfter(currentArc[1]))  sat = true; break;
-            case "<":  if (currentArc[0].isBefore(currentArc[1])) sat = true; break;
-            case ">=": if (currentArc[0].isAfter(currentArc[1]) || currentArc[0].isEqual(currentArc[1]))  sat = true; break;
-            case "<=": if (currentArc[0].isBefore(currentArc[1]) || currentArc[0].isEqual(currentArc[1])) sat = true; break;
-            }
-            if (!sat) {
-                arcs.add(currentArc);
-            }
-        }
-		return arcs;
-	}
+
 	
 	
-	public static List<LocalDate> recursiveBackTracking (List<LocalDate> variables, List<LocalDate> domains, Set<DateConstraint> constraints, int indexOfUnassignedVariable, int stopSize) {
+	public static List<LocalDate> recursiveBackTracking (List<LocalDate> assignment, List<List<LocalDate>> domains, Set<DateConstraint> constraints, int indexOfUnassignedVariable, int stopSize) {
         // WHY ONLY 0? 
         System.out.println(indexOfUnassignedVariable);
-		if(indexOfUnassignedVariable == stopSize && allStatesAreConsistent(variables, constraints)/* || domains.size() == 0*/) {
+		if(indexOfUnassignedVariable == stopSize && allStatesAreConsistent(assignment, constraints)/* || domains.size() == 0*/) {
     		System.out.println("I GOT HERE 1");
-        	return variables;
+        	return assignment;
         }
-        for(LocalDate value : domains) {
-    		variables.set(indexOfUnassignedVariable, value);
-        	if(allStatesAreConsistent(variables, constraints)) {
-        		System.out.println("I GOT HERE 2");
-        		System.out.println(variables.toString());
-        		List<LocalDate>  result = recursiveBackTracking(variables, domains, constraints, indexOfUnassignedVariable + 1, stopSize);
-            	 if(result != null) {
-                 	return result;
-                 } 
-        	} 
-        	// WHY IF PUT IN A NULL IT MESSES THE WHOLE THING UP? 
-            variables.set(indexOfUnassignedVariable, null);
-
+//        for(List<LocalDate> domain : domains) {
+        	for(LocalDate value : domains.get(indexOfUnassignedVariable)) {
+        		assignment.set(indexOfUnassignedVariable, value);
+            	if(allStatesAreConsistent(assignment, constraints)) {
+            		System.out.println("I GOT HERE 2");
+            		System.out.println(assignment.toString());
+            		List<LocalDate>  result = recursiveBackTracking(assignment, domains, constraints, indexOfUnassignedVariable + 1, stopSize);
+                	 if(result != null) {
+                     	return result;
+                     } 
+            	} 
+            	// WHY IF PUT IN A NULL IT MESSES THE WHOLE THING 
+//        	}
+        	
         }
         return null; 
     }
@@ -189,13 +200,12 @@ public class CSP {
     public static List<LocalDate> solve (int nMeetings, LocalDate rangeStart, LocalDate rangeEnd, Set<DateConstraint> constraints) {
 //    	List<LocalDate> domains = makeDomains(nMeetings, rangeStart, rangeEnd);
 
-    	List<LocalDate> domains = preprocess(makeDomains(nMeetings, rangeStart, rangeEnd), constraints);
+    	List<List<LocalDate>> domains = arcConstraint(nodeConsistency(makeDomains(nMeetings, rangeStart, rangeEnd), constraints), constraints);
 //    	for(LocalDate date : domains) {
 //    		System.out.println(date);
 //    	}
-    	List<LocalDate> variables = makeDateVars(nMeetings);
-//    	List<LocalDate> csp = variables;
-    	List<LocalDate> solution = recursiveBackTracking(variables, domains,constraints, 0, nMeetings);
+    	List<LocalDate> csp = new ArrayList<LocalDate>(nMeetings);
+    	List<LocalDate> solution = recursiveBackTracking(csp, domains,constraints, 0, nMeetings);
     	
     	if(solution == null) {
     		System.out.println("Solution was null");
@@ -203,5 +213,7 @@ public class CSP {
     	} 
     	return solution;
     }
+    
+    // list of sets 
     
 }
