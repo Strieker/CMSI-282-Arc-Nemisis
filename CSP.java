@@ -121,30 +121,29 @@ public class CSP {
 	}
 	
 	
-	private static boolean arcConsistent(List<LocalDate> assignments, Set<DateConstraint> constraints){ 
+	private static PriorityQueue<LocalDate[]>  arcConsistent(List<LocalDate> domains, Set<DateConstraint> constraints){ 
 		
 		PriorityQueue<LocalDate[]> arcs = new PriorityQueue<>();
 		
 		for (DateConstraint d : constraints) {
 	        boolean sat = false;
-            LocalDate leftDate = assignments.get(d.L_VAL),
-                      rightDate = assignments.get(((BinaryDateConstraint) d).R_VAL);
-                          
+            LocalDate leftDate = domains.get(d.L_VAL),
+                      rightDate = domains.get(((BinaryDateConstraint) d).R_VAL);
+	        LocalDate[] currentArc = {rightDate, leftDate};
                       
-            if(leftDate == null || rightDate == null) {continue;}
             switch (d.OP) {
-            case "==": if (leftDate.isEqual(rightDate))  sat = true; break;
-            case "!=": if (!leftDate.isEqual(rightDate)) sat = true; break;
-            case ">":  if (leftDate.isAfter(rightDate))  sat = true; break;
-            case "<":  if (leftDate.isBefore(rightDate)) sat = true; break;
-            case ">=": if (leftDate.isAfter(rightDate) || leftDate.isEqual(rightDate))  sat = true; break;
-            case "<=": if (leftDate.isBefore(rightDate) || leftDate.isEqual(rightDate)) sat = true; break;
+            case "==": if (currentArc[0].isEqual(currentArc[1]))  sat = true; break;
+            case "!=": if (!currentArc[0].isEqual(currentArc[1])) sat = true; break;
+            case ">":  if (currentArc[0].isAfter(currentArc[1]))  sat = true; break;
+            case "<":  if (currentArc[0].isBefore(currentArc[1])) sat = true; break;
+            case ">=": if (currentArc[0].isAfter(currentArc[1]) || currentArc[0].isEqual(currentArc[1]))  sat = true; break;
+            case "<=": if (currentArc[0].isBefore(currentArc[1]) || currentArc[0].isEqual(currentArc[1])) sat = true; break;
             }
             if (!sat) {
-            	return false;
+                arcs.add(currentArc);
             }
         }
-		return true;
+		return arcs;
 	}
 	
 	
