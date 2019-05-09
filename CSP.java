@@ -107,20 +107,21 @@ public class CSP {
 				if (d.arity() == 1) {
 					continue;
 				}
-				for (int i = 0; i < domains.size(); i++) {
-					if (i == d.L_VAL) {
+				for (int k = 0; k < domains.size(); k++) {
+					if (k == d.L_VAL) {
 						List<LocalDate> leftVal = domains.get(d.L_VAL);
 						List<LocalDate> rightVal = domains.get(((BinaryDateConstraint) d).R_VAL);
-						int indexMove = 0; 
 						boolean isConsistentSomewhere = false;
-						for(LocalDate domainL : leftVal) {
-							for(LocalDate domainR : rightVal) {
-								if(isConsistent(domainL, domainR, d)) {
+						for(int i = 0; i < leftVal.size(); i++) {
+							for(int j = 0; j < rightVal.size(); j++) {
+								if(isConsistent(leftVal.get(i), rightVal.get(j), d)) {
 									isConsistentSomewhere = true;
-								} else if(!isConsistent(domainL, domainR, d) && indexMove == rightVal.size() - 1 && isConsistentSomewhere) {
-									rightVal.remove(domainL);
+								} 
+								if(j == rightVal.size() - 1 && !isConsistentSomewhere) {
+									leftVal.remove(leftVal.get(i));
 								}
 							} 
+							isConsistentSomewhere = false;
 						}
 					}	
 				}
