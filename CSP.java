@@ -167,6 +167,8 @@ public class CSP {
 					return result;
 				}
 			}
+			assignment.set(indexOfUnassignedVariable, null);
+
 			// WHY IF PUT IN A NULL IT MESSES THE WHOLE THING
 //        	}
 
