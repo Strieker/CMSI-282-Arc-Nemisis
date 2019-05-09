@@ -12,11 +12,6 @@ import java.time.LocalDate;
  * 3 <= 2019-11-9
  */
 
-//// Constraint pseudocode:
-//0 != 2019-1-2
-//
-//// UnaryDateConstraint object:
-//new UnaryDateConstraint(0, "!=", LocalDate.of(2019, 1, 2))
 public class UnaryDateConstraint extends DateConstraint {
 
     public final LocalDate R_VAL;

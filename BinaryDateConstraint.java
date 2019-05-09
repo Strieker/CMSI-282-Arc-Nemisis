@@ -10,11 +10,6 @@ package csp;
  * 3 <= 5
  */
 
-//// Constraint pseudocode:
-//0 == 2
-//
-//// BinaryDateConstraint object:
-//new BinaryDateConstraint(0, "==", 2)
 public class BinaryDateConstraint extends DateConstraint {
 
     public final int R_VAL;
