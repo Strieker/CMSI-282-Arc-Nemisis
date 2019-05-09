@@ -19,6 +19,15 @@ import java.util.*;
 //Set<DateConstraint> constraints A Set of date constraints on the meeting times in the formats specified above.
 
 public class CSP {
+	
+	public static List<LocalDate> makeDateVars(int nMeetings){
+		List<LocalDate> dateVariables = new ArrayList<>();
+		for(int i = 0; i < nMeetings; i++) {
+			dateVariables.add(null);
+		}
+		return dateVariables;
+	}
+	
 	private static List<LocalDate> makeDeepCopyOfVariableDomain(int nMeetings, LocalDate rangeStart, LocalDate rangeEnd){
 		List<LocalDate> currentDomainSet = new ArrayList<>();
 		LocalDate currentState = rangeStart;
@@ -95,20 +104,18 @@ public class CSP {
 		return domains;
 	}
 	
-	private static boolean allStatesAreConsistent(List<LocalDate> assignments, Set<DateConstraint> constraints) {
-
+	private static boolean constraintCheck(List<LocalDate> assignments, Set<DateConstraint> constraints) {
 		for (DateConstraint d : constraints) {
-			for (int i = 0; i < assignments.size(); i++) {
-				if (i == d.L_VAL) {
-						LocalDate leftDate = assignments.get(i);
-						LocalDate rightDate = ((UnaryDateConstraint) d).R_VAL;
-						if(!isConsistent(leftDate, rightDate, d)) {
+			LocalDate leftDate = assignments.get(d.L_VAL);
+			LocalDate rightDate = (d.arity() == 1) ?
+					((UnaryDateConstraint) d).R_VAL :
+				assignments.get(((BinaryDateConstraint) d).R_VAL);
+			if(leftDate == null || rightDate == null) {continue;}
+			if(!isConsistent(leftDate, rightDate, d)) {
 							return false;
 						}
 					}
-					
-				}
-			}
+				
 		return true;
 	}
 
@@ -151,14 +158,17 @@ public class CSP {
 		// WHY ONLY 0?
 		System.out.println(indexOfUnassignedVariable);
 		if (indexOfUnassignedVariable == stopSize
-				&& allStatesAreConsistent(assignment, constraints)/* || domains.size() == 0 */) {
+				&& constraintCheck(assignment, constraints)/* || domains.size() == 0 */) {
 			System.out.println("I GOT HERE 1");
+			for(LocalDate assig : assignment) {
+				System.out.println(assig);
+			}
 			return assignment;
 		}
 //        for(List<LocalDate> domain : domains) {
 		for (LocalDate value : domains.get(indexOfUnassignedVariable)) {
 			assignment.set(indexOfUnassignedVariable, value);
-			if (allStatesAreConsistent(assignment, constraints)) {
+			if (constraintCheck(assignment, constraints)) {
 				System.out.println("I GOT HERE 2");
 				System.out.println(assignment.toString());
 				List<LocalDate> result = recursiveBackTracking(assignment, domains, constraints,
@@ -168,10 +178,6 @@ public class CSP {
 				}
 			}
 			assignment.set(indexOfUnassignedVariable, null);
-
-			// WHY IF PUT IN A NULL IT MESSES THE WHOLE THING
-//        	}
-
 		}
 		return null;
 	}
@@ -203,14 +209,14 @@ public class CSP {
 			System.out.println("fuck");
 			System.out.println(date.toString());
 		}
-		List<LocalDate> csp = new ArrayList<LocalDate>(nMeetings);
-//    	List<LocalDate> solution = recursiveBackTracking(csp, domains,constraints, 0, nMeetings);
-
-//    	if(solution == null) {
-//    		System.out.println("Solution was null");
-//    		return null;
-//    	} 
-		return null;
+		List<LocalDate> assignment = makeDateVars(nMeetings);
+    	List<LocalDate> solution = recursiveBackTracking(assignment, domains,constraints, 0, nMeetings);
+//
+    	if(solution == null) {
+    		System.out.println("Solution was null");
+    		return null;
+    	} 
+		return solution;
 	}
 
 	// list of sets
