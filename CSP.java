@@ -119,6 +119,7 @@ public class CSP {
 								} 
 								if(j == rightVal.size() - 1 && !isConsistentSomewhere) {
 									leftVal.remove(leftVal.get(i));
+									i--;
 								}
 							} 
 							isConsistentSomewhere = false;
